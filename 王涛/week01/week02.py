@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 class TorchModel(nn.Module):
     def __init__(self, input_size):
         super(TorchModel, self).__init__()
-        self.linear = nn.Linear(5, 10) # 线性层
+        self.linear = nn.Linear(input_size, 10) # 线性层
         self.linear2 = nn.Linear(10, 5) # 线性层
         # 交叉熵损失函数
         self.loss= nn.functional.cross_entropy
@@ -101,8 +101,29 @@ def train():
     plt.show()
     return
 
+
+def predict(model_path, input_vec):
+    input_size = 5
+    model = TorchModel(input_size)
+    model.load_state_dict(torch.load(model_path, weights_only=True))
+    model.eval()
+    
+    with torch.no_grad():
+        logits = model(torch.FloatTensor(input_vec))  # 获取模型输出的logits
+        # 手动应用softmax将logits转换为概率分布
+        probabilities = torch.nn.functional.softmax(logits, dim=1)
+    
+    for vec, prob in zip(input_vec, probabilities):
+        predicted_class = torch.argmax(prob).item()  # 预测类别
+        confidence = prob[predicted_class].item()    # 对应类别的概率（0-1之间）
+        print(f"输入：{vec}, 预测类别：{predicted_class}, 概率值：{confidence:.4f}")
+
+
 if __name__  == "__main__":
     # train()
-    x,y=build_dataset(1000)
-    print(y.shape)
+    test_vec = [[0.07889086,0.15229675,0.31082123,0.03504317,0.88920843],
+                [0.74963533,0.5524256,0.95758807,0.95520434,0.84890681],
+                [0.00797868,0.67482528,0.13625847,0.34675372,0.19871392],
+                [0.09349776,0.59416669,0.92579291,0.41567412,0.1358894]]
+    predict("model.bin", test_vec)
 
