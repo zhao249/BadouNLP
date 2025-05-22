@@ -49,11 +49,11 @@ def build_dataset(total_sample_num):
 
 def main():
     # 配置参数
-    epoch_num = 100  # 训练轮数
+    epoch_num = 200  # 训练轮数
     batch_size = 20  # 每次训练样本个数
     train_sample = 5000  # 每轮训练总共训练的样本总数
     input_size = 5  # 输入向量维度
-    learning_rate = 0.001  # 学习率
+    learning_rate = 0.01  # 学习率
     # 建立模型/实例化模型
     model = TorchModel(input_size)
     # 选择优化器
@@ -73,16 +73,57 @@ def main():
             loss = model(x, y)
             # 反向传播，计算梯度
             loss.backward()
-            # 更新梯度
+            # 更新权重
             optim.step()
             optim.zero_grad()  # 梯度归零，防止梯度累积
-            # watch_loss.append(loss.item())
+            watch_loss.append(loss.item())
+        print("=========\n第%d轮平均loss:%f" % (epoch + 1, np.mean(watch_loss)))
+        accuracy = evaluate(model)  # 测试本轮模型结果
+        log.append([accuracy, float(np.mean(watch_loss))])
     # 保存模型
     torch.save(model.state_dict(), "model.bin")
-    # # 每轮训练画图
-    # print(log)
-    # plt.plot()
+    # 每轮训练画图
+    print(log)
+    plt.plot(range(len(log)), [l[0] for l in log], label="accuracy")  # 画acc曲线
+    plt.plot(range(len(log)), [l[1] for l in log], label="loss")  # 画loss曲线
+    plt.legend()
+    plt.show()
     return
+
+
+def evaluate(model):
+    model.eval()
+    test_sample_num = 100
+    x, y = build_dataset(test_sample_num)
+
+    with torch.no_grad():
+        preds = model(x)  # shape: [batch_size], 每个是类别索引
+
+    # 初始化每类的计数器
+    total_per_class = [0] * 5
+    correct_per_class = [0] * 5
+
+    for pred, true in zip(preds, y):
+        label = int(true.item())
+        total_per_class[label] += 1
+        if int(pred.item()) == label:
+            correct_per_class[label] += 1
+
+    # 打印每类样本数和准确率
+    print("本次预测集中各类别分布与准确率：")
+    for i in range(5):
+        total = total_per_class[i]
+        correct = correct_per_class[i]
+        acc = (correct / total) if total > 0 else 0.0
+        print(f" - 类别 {i}：{total} 个样本，预测正确 {correct} 个，准确率：{acc:.2%}")
+
+    # 总体准确率
+    total_correct = sum(correct_per_class)
+    total_samples = sum(total_per_class)
+    overall_acc = total_correct / total_samples
+    print(f"总体预测准确率：{overall_acc:.2%}")
+
+    return overall_acc
 
 
 def predict(model_path, input_vec):
